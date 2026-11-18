@@ -14,7 +14,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Extract AVENZO source
         run: |
@@ -29,10 +29,18 @@ jobs:
       - name: Install dependencies
         run: npm --prefix "$APP_DIR" install
 
+      - name: Diagnose Expo configuration
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          echo "Project files:"
+          find . -maxdepth 2 -type f \( -name 'app.json' -o -name 'app.config.*' -o -name 'package.json' -o -name 'eas.json' \) -print
+          echo "Expo config output:"
+          npx expo config --json
+
       - name: Remove placeholder Expo project ID
         working-directory: ${{ env.APP_DIR }}
         run: |
-          node -e 'const fs=require("fs"); const p="app.json"; if(fs.existsSync(p)){const c=JSON.parse(fs.readFileSync(p,"utf8")); if(c.expo?.extra?.eas?.projectId==="ADD_EXPO_PROJECT_ID_HERE"){delete c.expo.extra.eas.projectId; fs.writeFileSync(p, JSON.stringify(c,null,2)+"\\n"); console.log("Removed placeholder Expo project ID");}}'
+          node -e 'const fs=require("fs"); const p="app.json"; if(fs.existsSync(p)){const c=JSON.parse(fs.readFileSync(p,"utf8")); if(c.expo?.extra?.eas?.projectId==="ADD_EXPO_PROJECT_ID_HERE"){delete c.expo.extra.eas.projectId; fs.writeFileSync(p, JSON.stringify(c,null,2)+"\n"); console.log("Removed placeholder Expo project ID");}}'
 
       - name: Initialize EAS project if needed
         working-directory: ${{ env.APP_DIR }}
