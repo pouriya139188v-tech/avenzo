@@ -1,0 +1,88 @@
+name: AVENZO Web Preview
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'AVENZO-project-source.zip'
+      - '.github/workflows/web-preview.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: avenzo-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build AVENZO for the web
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Extract app source
+        run: |
+          unzip -q AVENZO-project-source.zip -d app-source
+          APP_DIR="$(dirname "$(find app-source -name package.json -not -path '*/node_modules/*' | head -n 1)")"
+          if [ -z "$APP_DIR" ] || [ "$APP_DIR" = "." ]; then
+            echo "package.json was not found inside the source archive"
+            exit 1
+          fi
+          echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: npm --prefix "$APP_DIR" install
+
+      - name: Prepare Expo web configuration
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'app.json';
+          if (!fs.existsSync(path)) throw new Error('app.json is missing');
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          config.expo ??= {};
+          config.expo.web ??= {};
+          config.expo.web.bundler = 'metro';
+          config.expo.web.output = 'single';
+          config.expo.experiments ??= {};
+          config.expo.experiments.baseUrl = '/avenzo';
+          fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');
+          NODE
+
+      - name: Install Expo web dependencies
+        working-directory: ${{ env.APP_DIR }}
+        run: npx expo install react-native-web react-dom @expo/metro-runtime
+
+      - name: Export web app
+        working-directory: ${{ env.APP_DIR }}
+        run: npx expo export --platform web --output-dir dist
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.APP_DIR }}/dist
+
+  deploy:
+    name: Publish AVENZO preview
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
