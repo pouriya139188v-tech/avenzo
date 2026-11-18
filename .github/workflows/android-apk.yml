@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'AVENZO-project-source.zip'
   workflow_dispatch:
 
 jobs:
@@ -55,9 +57,7 @@ jobs:
 
       - name: Diagnose Expo configuration
         working-directory: ${{ env.APP_DIR }}
-        run: |
-          echo "Expo config output:"
-          npx expo config --json
+        run: npx expo config --json
 
       - name: Remove placeholder Expo project ID
         working-directory: ${{ env.APP_DIR }}
@@ -90,7 +90,6 @@ jobs:
             echo "EAS build completed, but no APK file was found after download."
             exit 1
           fi
-          echo "Found APK: $APK_PATH"
           echo "AVENZO_APK_PATH=$APK_PATH" >> "$GITHUB_ENV"
 
       - name: Upload installable APK artifact
