@@ -16,15 +16,27 @@ jobs:
         with:
           node-version: 20
 
+      - name: Extract AVENZO source
+        run: |
+          unzip -q AVENZO-project-source.zip -d app-source
+          APP_DIR="$(dirname "$(find app-source -name package.json -not -path '*/node_modules/*' | head -n 1)")"
+          if [ -z "$APP_DIR" ] || [ "$APP_DIR" = "." ]; then
+            echo "package.json was not found inside the source archive"
+            exit 1
+          fi
+          echo "APP_DIR=$APP_DIR" >> "$GITHUB_ENV"
+
       - name: Install dependencies
-        run: npm install
+        run: npm --prefix "$APP_DIR" install
 
       - name: Initialize EAS project if needed
+        working-directory: ${{ env.APP_DIR }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli@latest project:init --non-interactive
 
       - name: Build APK on EAS
+        working-directory: ${{ env.APP_DIR }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli@latest build --platform android --profile preview --non-interactive --no-wait
