@@ -40,7 +40,7 @@ jobs:
       - name: Remove placeholder Expo project ID
         working-directory: ${{ env.APP_DIR }}
         run: |
-          node -e 'const fs=require("fs"); const p="app.json"; if(fs.existsSync(p)){const c=JSON.parse(fs.readFileSync(p,"utf8")); if(c.expo?.extra?.eas?.projectId==="ADD_EXPO_PROJECT_ID_HERE"){delete c.expo.extra.eas.projectId; fs.writeFileSync(p, JSON.stringify(c,null,2)+"\\n"); console.log("Removed placeholder Expo project ID");}}'
+          node -e 'const fs=require("fs"); const p="app.json"; if(fs.existsSync(p)){const c=JSON.parse(fs.readFileSync(p,"utf8")); if(c.expo?.extra?.eas?.projectId==="ADD_EXPO_PROJECT_ID_HERE"){delete c.expo.extra.eas.projectId; fs.writeFileSync(p, JSON.stringify(c,null,2)); console.log("Removed placeholder Expo project ID");}}'
 
       - name: Initialize EAS project if needed
         working-directory: ${{ env.APP_DIR }}
