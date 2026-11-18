@@ -1,12 +1,16 @@
 name: AVENZO Android APK
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   build:
     name: Build Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,11 +33,29 @@ jobs:
       - name: Install dependencies
         run: npm --prefix "$APP_DIR" install
 
+      - name: Configure preview profile to produce an APK
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = 'eas.json';
+          if (!fs.existsSync(path)) {
+            throw new Error('eas.json is missing from the source archive');
+          }
+          const config = JSON.parse(fs.readFileSync(path, 'utf8'));
+          config.build ??= {};
+          config.build.preview ??= {};
+          config.build.preview.distribution = 'internal';
+          config.build.preview.android ??= {};
+          config.build.preview.android.buildType = 'apk';
+          fs.writeFileSync(path, JSON.stringify(config, null, 2) + '\n');
+          console.log('Preview profile configured for Android APK.');
+          console.log(fs.readFileSync(path, 'utf8'));
+          NODE
+
       - name: Diagnose Expo configuration
         working-directory: ${{ env.APP_DIR }}
         run: |
-          echo "Project files:"
-          find . -maxdepth 2 -type f \( -name 'app.json' -o -name 'app.config.*' -o -name 'package.json' -o -name 'eas.json' \) -print
           echo "Expo config output:"
           npx expo config --json
 
@@ -48,8 +70,33 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: npx eas-cli@latest project:init --non-interactive --force
 
-      - name: Build APK on EAS
+      - name: Build Android APK and wait for completion
         working-directory: ${{ env.APP_DIR }}
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: npx eas-cli@latest build --platform android --profile preview --non-interactive --no-wait
+        run: npx eas-cli@latest build --platform android --profile preview --non-interactive --wait
+
+      - name: Download the completed APK
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx eas-cli@latest build:list --platform android --limit 1 --json --non-interactive > "$RUNNER_TEMP/avenzo-builds.json"
+          BUILD_ID="$(node -e 'const x=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); const b=Array.isArray(x)?x[0]:(x.builds||[])[0]; if(!b?.id) process.exit(2); process.stdout.write(b.id)' "$RUNNER_TEMP/avenzo-builds.json")"
+          echo "Downloading completed EAS build: $BUILD_ID"
+          npx eas-cli@latest build:download --build-id "$BUILD_ID" --non-interactive
+          APK_PATH="$(find . -type f -name '*.apk' -not -path '*/node_modules/*' -print -quit)"
+          if [ -z "$APK_PATH" ]; then
+            echo "EAS build completed, but no APK file was found after download."
+            exit 1
+          fi
+          echo "Found APK: $APK_PATH"
+          echo "AVENZO_APK_PATH=$APK_PATH" >> "$GITHUB_ENV"
+
+      - name: Upload installable APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AVENZO-Android-APK
+          path: ${{ env.APP_DIR }}/${{ env.AVENZO_APK_PATH }}
+          if-no-files-found: error
+          retention-days: 14
