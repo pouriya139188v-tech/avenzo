@@ -24,8 +24,9 @@ alter table public.profiles enable row level security;
 alter table public.posts enable row level security;
 
 drop policy if exists "Profiles are readable by everyone" on public.profiles;
-create policy "Profiles are readable by everyone"
-on public.profiles for select using (true);
+drop policy if exists "Profiles are visible to signed-in users" on public.profiles;
+create policy "Profiles are visible to signed-in users"
+on public.profiles for select to authenticated using (true);
 
 drop policy if exists "Users can insert their own profile" on public.profiles;
 create policy "Users can insert their own profile"
@@ -36,8 +37,9 @@ create policy "Users can update their own profile"
 on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
 
 drop policy if exists "Posts are readable by everyone" on public.posts;
-create policy "Posts are readable by everyone"
-on public.posts for select using (true);
+drop policy if exists "Posts are visible to signed-in users" on public.posts;
+create policy "Posts are visible to signed-in users"
+on public.posts for select to authenticated using (true);
 
 drop policy if exists "Signed-in users can create their own posts" on public.posts;
 create policy "Signed-in users can create their own posts"
