@@ -64,7 +64,7 @@ jobs:
 
       - name: Install Expo web dependencies
         working-directory: ${{ env.APP_DIR }}
-        run: npx expo install react-native-web react-dom @expo/metro-runtime
+        run: npx expo install expo-asset react-native-web react-dom @expo/metro-runtime
 
       - name: Export web app
         working-directory: ${{ env.APP_DIR }}
